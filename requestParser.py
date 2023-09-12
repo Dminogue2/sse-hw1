@@ -20,7 +20,7 @@ def populate():
     cont = True
     toSend = {'startIndex': 0, 'noRejected': ''}
 
-    db = sqlite3.connect('NVD-SQL.db')
+    db = sqlite3.connect('NVD-SQL.sqlite')
     '''
     2 Related Tables:
      MATCH: Carry the searchable nodes
@@ -38,8 +38,11 @@ def populate():
       severity
       nodeList: list of match IDs in a list such as [{node}, ...] where node=['0/1', 'mId', ...]. Only used when looking for AND dependencies
     '''
-    db.execute('DROP TABLE RECORD') # Starting from scratch
-    db.execute('DROP TABLE CVE')
+    try:
+        db.execute('DROP TABLE RECORD') # Starting from scratch, if no file then these will throw error that can be ignored
+        db.execute('DROP TABLE CVE')
+    except sqlite3.OperationalError:
+        pass
     db.execute(CREATEREC)
     db.execute(CREATECVE)
     db.commit()
@@ -57,19 +60,21 @@ def populate():
                 ID = cve['cve']['id']
                 desc = next((d['value'] for d in cve['cve']['descriptions'] if d['lang'] == 'en'), '')
                 #desc = desc.replace('"', '\'')
-                # Search both types of metrics avaliable and chose the first one on the list to report. This prioritized v3.1 over v3.0 over v2
+                # Search both types of metrics available and chose the first one on the list to report. This prioritized v3.1 over v3.0 over v2
                 severity = ""
                 if 'metrics' in cve['cve']:
                     if 'cvssMetricV2' in cve['cve']['metrics'].keys():
                         severity = cve['cve']['metrics']['cvssMetricV2'][0]['baseSeverity']
                     if 'cvssMetricV30' in cve['cve']['metrics'].keys():
-                        severity = cve['cve']['metrics']['cvssMetricV30'][0]['baseSeverity']
+                        severity = cve['cve']['metrics']['cvssMetricV30'][0]['cvssData']['baseSeverity']
                     if 'cvssMetricV31' in cve['cve']['metrics'].keys():
-                        severity = cve['cve']['metrics']['cvssMetricV31'][0]['baseSeverity']
+                        severity = cve['cve']['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity']
                 cpe = list()
                 for entry in cve['cve']['configurations']:
                     for node in entry['nodes']:
                         matches = list()
+                        if 'cpeMatch' not in node:
+                            continue
                         for match in node['cpeMatch']:
                             if match['vulnerable']:
                                 matches.append(
@@ -104,8 +109,10 @@ def populate():
     db.execute(COMPRESS2)
     db.execute(COMPRESS3)
     db.execute(COMPRESS4)
+    db.commit()
     db.execute("VACUUM")
     db.commit()
+    db.close()
     return
 
 

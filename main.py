@@ -2,7 +2,7 @@ import sys
 import sqlite3
 from requestParser import populate, parse, findDep, checkCve, printVulnerabilities
 
-sys.argv = ['', 'detectOnly', 'pom/pom-1.xml']
+sys.argv = ['', 'doAll', 'pom/pom-1.xml']
 
 if len(sys.argv) != 3:
     print("Incorrect Command Line Usage: main.py [mode] [path]")
@@ -18,7 +18,7 @@ elif sys.argv[1] != "detectOnly":
 dependencies = parse(sys.argv[2])
 
 # Find a list of record id's associated with these dependencies
-db = sqlite3.connect('NVD-SQL.db')
+db = sqlite3.connect('NVD-SQL.sqlite')
 report = {}
 for dep in dependencies:
     for record in findDep(db, dep):
@@ -38,4 +38,4 @@ for product in report.values():
 vulnCount, cveVulnerabilities = checkCve(db, cveList, cpeList)
 db.close()
 printVulnerabilities(sys.argv[2].split('/')[-1], report, cveVulnerabilities)
-print(f"Success! {sys.argv[2]} had {vulnCount} vulnerabilies over {len(report.keys())} dependencies")
+print(f"Success! {sys.argv[2]} had {vulnCount} vulnerabilities over {len(report.keys())} dependencies")
